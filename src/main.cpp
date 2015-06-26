@@ -2,12 +2,14 @@
 #include <QTextCodec>
 #include <QTranslator>
 
-#include "inc/mainwindow.h"
 #include <cstdio>
+#include <unistd.h>
 
 #include <QMessageBox>
 //#include "tst/test_intervalshistogram.h"
 
+#include "inc/mainwindow.h"
+uint nbT = 1;
 void outputHandler(QtMsgType type, const char *msg)
 {
 	fprintf(stderr, "%s\n", msg);
@@ -23,6 +25,19 @@ void outputHandler(QtMsgType type, const char *msg)
 int main(int argc, char *argv[])
 {
 //	qInstallMsgHandler(outputHandler);
+  int opt;
+  
+  while ((opt = getopt(argc, argv, "t:")) != -1) {
+    switch (opt) {
+    case 't':
+      nbT = atoi(optarg);
+      break;
+    }
+  }
+
+#ifdef PARALLEL
+  std::cout << nbT << " processus actif(s) / " << omp_get_num_procs() << std::endl;
+#endif
 
 	QTextCodec::setCodecForTr(QTextCodec::codecForName("UTF-8"));
 	QTextCodec::setCodecForCStrings(QTextCodec::codecForName("UTF-8"));

@@ -7,6 +7,7 @@
 #include "inc/define.h"
 #include "inc/dicomreader.h"
 #include "inc/ellipticalaccumulationhistogram.h"
+#include "inc/globaltimer.h"
 #include "inc/knotellipseradiihistogram.h"
 #include "inc/knotpithprofile.h"
 #include "inc/pith.h"
@@ -587,14 +588,10 @@ void MainWindow::drawTangentialView()
 			const qreal ellipseWidth = _knotEllipseRadiiHistogram->lowessData()[currentSlice];
 			const qreal ellipseHeight = ellipseWidth*ellipticityRate;
 
-//			const qreal ellipseWidth2 = _knotEllipseRadiiHistogram->ellipticalHistogram(currentSlice).maximums()[0];
-//			const qreal ellipseHeight2 = ellipseWidth2*ellipticityRate;
 
 			painter.begin(&_tangentialPix);
 			painter.setPen(currentColor);
 			painter.drawEllipse(QPointF(pithCoord.x,pithCoord.y),ellipseWidth,ellipseHeight);
-//			painter.setPen(Qt::green);
-//			painter.drawEllipse(QPointF(pithCoord.x,pithCoord.y),ellipseWidth2,ellipseHeight2);
 			painter.end();
 
 
@@ -795,7 +792,12 @@ void MainWindow::selectSectorInterval(const int &index, const bool &draw )
 		_tangentialTransform.setMinIntensity( intensityInterval.min() );
 		_tangentialTransform.enableTrilinearInterpolation( _ui->_checkTrilinearInterpolation->isChecked() );
 		_tangentialTransform.setAngularInterval( *_billon, centeredSectorInterval );
+/* <Time computing> */
+		GlobalTimer::getInstance()->start(QString("Intervalle angulaire n°%1").arg(index));
+		GlobalTimer::getInstance()->start("7) Construction des coupes tangentielles");
 		_tangentialBillon = _tangentialTransform.execute( *_billon );
+		GlobalTimer::getInstance()->end();
+/* </Time computing> */
 
 		_knotPithExtractor.setSubWindowWidth( _ui->_spinPithSubWindowWidth_knot->value() );
 		_knotPithExtractor.setSubWindowHeight( _ui->_spinPithSubWindowHeight_knot->value() );
@@ -808,7 +810,11 @@ void MainWindow::selectSectorInterval(const int &index, const bool &draw )
 		_knotPithExtractor.setFirstValidSlicesToExtrapolate( _ui->_spinFirstSlicesToExtrapolate_knot->value() );
 		_knotPithExtractor.setLastValidSlicesToExtrapolate( _ui->_spinLastSlicesToExtrapolate_knot->value() );
 
+/* <Time computing> */
+		GlobalTimer::getInstance()->start("8) Detection de la moelle du noeud");
 		_knotPithExtractor.process(*_tangentialBillon,true);
+		GlobalTimer::getInstance()->end();
+/* </Time computing> */
 	}
 
 	if (draw)
@@ -846,10 +852,18 @@ void MainWindow::updateBillonPith()
 											  _ui->_spinPithMinimumWoodPercentage_billon->value(), Interval<int>( _ui->_spinPithMinIntensity_billon->value(), _ui->_spinPithMaxnIntensity_billon->value() ),
 											  _ui->_chechPithAscendingOrder_billon->isChecked(), TKD::LINEAR,
 											  _ui->_spinFirstSlicesToExtrapolate_billon->value(), _ui->_spinLastSlicesToExtrapolate_billon->value());
+/* <Time computing> */
+		GlobalTimer::getInstance()->start("1) Calcul de la moelle");
 		pithExtractor.process(*_billon);
+		GlobalTimer::getInstance()->end();
+/* </Time computing> */
+/* <Time computing> */
+		GlobalTimer::getInstance()->start("2) Calcul du rayon minimum");
 		_treeRadius = BillonAlgorithms::restrictedAreaMeansRadius(*_billon,_ui->_spinRestrictedAreaResolution->value(),_ui->_spinRestrictedAreaThreshold->value(),
 																  _ui->_spinRestrictedAreaMinimumRadius->value()*_billon->n_cols/100.,
 																  _ui->_spinPercentageOfSlicesToIgnore->value()*_billon->n_slices/100.);
+		GlobalTimer::getInstance()->end();
+/* </Time computing> */
 		_ui->_checkRadiusAroundPith->setText( QString::number(_treeRadius*_ui->_spinRestrictedAreaPercentage->value()/100.) );
 		_ui->_spinHistogramNumberOfAngularSectors_zMotionAngular->setValue(TWO_PI*_treeRadius*_ui->_spinRestrictedAreaPercentage->value()/100.);
 	}
@@ -863,12 +877,20 @@ void MainWindow::updateSliceHistogram()
 
 	if ( _billon && _billon->hasPith() )
 	{
+/* <Time computing> */
+		GlobalTimer::getInstance()->start("3) Histo de z-mouvement");
 		_sliceHistogram->construct(*_billon, Interval<int>(_ui->_spinMinIntensity->value(),_ui->_spinMaxIntensity->value()),
 								   _ui->_spinZMotionMin->value(), _ui->_spinHistogramPercentageOfSlicesToIgnore_zMotion->value()*_billon->n_slices/100., _treeRadius*_ui->_spinRestrictedAreaPercentage->value()/100.);
+		GlobalTimer::getInstance()->end();
+/* </Time computing> */
+/* <Time computing> */
+		GlobalTimer::getInstance()->start("4) Calcul des maximums et intervalles");
 		_sliceHistogram->computeMaximumsAndIntervals( _ui->_spinHistogramSmoothingRadius_zMotion->value(),
 													  _ui->_spinHistogramMinimumHeightOfMaximum_zMotion->value(),
 													  _ui->_spinHistogramDerivativeSearchPercentage_zMotion->value(),
 													  _ui->_spinHistogramMinimumWidthOfInterval_zMotion->value(), false);
+		GlobalTimer::getInstance()->end();
+/* </Time computing> */
 	}
 	_plotSliceHistogram->update( *_sliceHistogram );
 	_plotSliceHistogram->moveCursor( _ui->_sliderSelectSlice->value() );
@@ -897,14 +919,23 @@ void MainWindow::updateSectorHistogram( const Interval<uint> &interval )
 
 	if ( _billon )
 	{
+/* <Time computing> */
+//		GlobalTimer::getInstance()->start("Intervalle de coupes n°"+ _ui->_comboSelectSliceInterval->currentIndex()-1);
+		GlobalTimer::getInstance()->start("5) Histo des secteurs angulaires");
 		_sectorHistogram->construct( *_billon, interval, Interval<int>(_ui->_spinMinIntensity->value(),_ui->_spinMaxIntensity->value()),
 									 _ui->_spinZMotionMin->value(), _treeRadius*_ui->_spinRestrictedAreaPercentage->value()/100.);
+		GlobalTimer::getInstance()->end();
+/* </Time computing> */
 		qreal coeffDegToSize = _ui->_spinHistogramNumberOfAngularSectors_zMotionAngular->value()/360.;
+/* <Time computing> */
+		GlobalTimer::getInstance()->start("6) Calcul des maximums et intervalles");
 		_sectorHistogram->computeMaximumsAndIntervals( _ui->_spinHistogramSmoothingRadius_zMotionAngular->value()*coeffDegToSize,
 													   _ui->_spinHistogramMinimumHeightOfMaximum_zMotionAngular->value(),
 													   _ui->_spinHistogramDerivativeSearchPercentage_zMotionAngular->value(),
 													   _ui->_spinHistogramMinimumWidthOfInterval_zMotionAngular->value()*coeffDegToSize,
 													   _ui->_spinHistogramIntervalGap_zMotionAngular->value(), true );
+		GlobalTimer::getInstance()->end();
+/* </Time computing> */
 	}
 
 	_plotSectorHistogram->update(*_sectorHistogram);
@@ -919,7 +950,11 @@ void MainWindow::updateKnotPithProfile()
 
 	if ( _tangentialBillon && _tangentialBillon->hasPith() )
 	{
+/* <Time computing> */
+		GlobalTimer::getInstance()->start("9) Histo derivees verticales moelle noeud");
 		_knotPithProfile->construct( _tangentialBillon->pith(), _ui->_spinKnotPithProfileSmoothingRadius->value() );
+		GlobalTimer::getInstance()->end();
+/* </Time computing> */
 	}
 
 	_plotKnotPithProfile->update( *_knotPithProfile );
@@ -934,10 +969,15 @@ void MainWindow::updateKnotEllipseRadiiHistogram()
 
 	if ( _tangentialBillon && _tangentialBillon->hasPith() && _knotPithProfile->size() )
 	{
+/* <Time computing> */
+		GlobalTimer::getInstance()->start("10) Histo accumulation ellipses + global");
 		_knotEllipseRadiiHistogram->construct( *_tangentialBillon, *_knotPithProfile, _knotPithExtractor.validSlices(),
 											   _ui->_spinLowessBandWidth->value(), _ui->_spinEllipticalAccumulationSmoothingRadius->value(),
 											   _ui->_spinLowessIqrCoefficient->value(), _ui->_spinLowessPercentagOfFirstValidSlicesToExtrapolate->value(),
 											   _ui->_spinLowessPercentagOfLastValidSlicesToExtrapolate->value() );
+		GlobalTimer::getInstance()->end();
+		GlobalTimer::getInstance()->end();
+/* </Time computing> */
 	}
 
 	_plotKnotEllipseRadiiHistogram->update( *_knotEllipseRadiiHistogram );
@@ -2055,11 +2095,14 @@ void MainWindow::exportSegmentedKnotsOfCurrentSliceIntervalToSdp( const bool &us
 				stream << "# Coordinates of the segmented knot" << endl;
 				stream << "# x y z knotID" << endl;
 
+				GlobalTimer::getInstance()->reset();
 				for ( int sectorIndex=1 ; sectorIndex<_ui->_comboSelectSectorInterval->count() ; ++sectorIndex )
 				{
 					selectSectorInterval(sectorIndex, true);
 					exportSegmentedKnotToSdp(stream, _tangentialTransform, useSliceIntervalCoordinates, sectorIndex );
 				}
+				QTextStream streamOut(stdout);
+				GlobalTimer::getInstance()->print(streamOut);
 
 				file.close();
 				QMessageBox::information(this,tr("Export des nœud segmentés de l'intervalle de coupes courant en SDP"), tr("Export réussi !"));
