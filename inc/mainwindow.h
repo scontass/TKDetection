@@ -10,6 +10,8 @@
 #include "inc/pithextractorboukadida.h"
 #include "inc/tangentialtransform.h"
 
+extern uint nbT;
+
 namespace Ui
 {
 	class MainWindow;

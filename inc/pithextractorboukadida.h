@@ -177,7 +177,7 @@ private:
 	 * \param   nbContourPoints nombre de points utilisés pour tracer les droites
 	 * \return	les coordonnées de la moelle pour la coupe traitée
 	 */
-	uiCoord2D transHough( const Slice &slice, qreal & lineOnMaxRatio, const rCoord2D &voxelDims, const qreal &adaptativeWidthCoeff = 1.0 ) const;
+	uiCoord2D transHough( const Slice &slice, qreal & lineOnMaxRatio, const rCoord2D &voxelDims, const qreal &adaptativeWidthCoeff = 1.0, const uint &nbThreads = 1 ) const;
 
 	/**
 	 * \fn		uint contour( const Slice &slice, arma::Mat<qreal> &orientations )
@@ -188,13 +188,14 @@ private:
 	 * \return	le nombre d'orientations prises en compte
 	 */
 	uint accumulation( const Slice &slice, arma::Mat<qreal> &orientations,
-					   arma::Mat<int> &accuSlice, const rCoord2D &voxelDims ) const;
+                     QVector< arma::Mat<int> > &accuSliceVec, const rCoord2D &voxelDims, const uint &nbThreads = 1 ) const;
 
 	void drawLine(arma::Mat<int> &slice, const iCoord2D &origin, const qreal &orientationOrig ) const;
+  void drawLinePart(arma::Mat<int> &slice, const iCoord2D &origin, const qreal &orientation, const int firstLine, const int nextFirstLine ) const;
 
 	void interpolation( Pith &pith, const QVector<qreal> &nbLineByMaxRatio , const Interval<uint> &sliceIntervalToInterpolate ) const;
 
-	void fillBillonBackground( Billon &billonToFill, QVector<qreal> &backgroundProportions, const Interval<int> &intensityInterval, const bool &adaptativeWidth ) const;
+	void fillBillonBackground( Billon &billonToFill, QVector<qreal> &backgroundProportions, QVector< QVector<iCoord2D> > &woodSubWindow, const Interval<int> &intensityInterval, const bool &adaptativeWidth ) const;
 
 	void detectValidSliceInterval( const QVector<qreal> &backgroundProportions );
 

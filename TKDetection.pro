@@ -71,6 +71,7 @@ SOURCES	=	src/main.cpp \
 			tst/test_intervalshistogram.cpp \
 			src/tiffreader.cpp \
 			src/v3dexport.cpp \
+      src/globaltimer.cpp
 
 HEADERS	=	inc/billon.h \
 			inc/billonalgorithms.h \
@@ -111,21 +112,23 @@ HEADERS	=	inc/billon.h \
 			inc/tangentialtransform.h \
 			inc/tiffreader.h \
 			inc/v3dexport.h \
+      inc/globaltimer.h
 
 FORMS =	ui/mainwindow.ui
 
 # Directives compilateur
 #-----------------------#
-QMAKE_CXXFLAGS *= -std=c++0x
+QMAKE_CXXFLAGS *= -std=c++0x -Wall -O3 -DARMA_DONT_USE_CXX11 -DARMA_NO_DEBUG -fopenmp -DPARALLEL
+QMAKE_LFLAGS *= -fopenmp
 macx:QMAKE_CC=/usr/bin/gcc
 macx:QMAKE_CXX=/usr/bin/g++
 
 
 # Librairies externes
 #--------------------#
-INCLUDEPATH *=	/usr/include/ /usr/local/include/
+INCLUDEPATH *=	/usr/include/ /usr/local/include/ /usr/local/qwtpolar-1.0.0/include
 
-QMAKE_LIBDIR *=	/usr/local/lib/
+QMAKE_LIBDIR *=	/usr/local/lib/ /usr/local/qwtpolar-1.0.0/lib /usr/lib/atlas-base /etc/alternatives
 
 LIBS *= -larmadillo -lgsl -lgslcblas
 

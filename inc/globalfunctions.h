@@ -97,6 +97,9 @@ namespace TKD
 		}
 	}
 
+  /*
+    Fonction de moyenne parallélisable en OpenMP sous forme d'un for
+   */
 	template<typename T >
 	void meanSmoothingNoLoop( const typename QVector<T>::iterator &begin, const typename QVector<T>::iterator &end, const uint &smoothingRadius )
 	{
