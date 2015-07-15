@@ -74,6 +74,7 @@ private slots:
 	void updateKnotPithProfile();
 	void updateKnotEllipseRadiiHistogram();
 	void updateEllipticalAccumulationHistogram();
+  void updateNbT();
 
 	void resetHistogramDefaultValuesZMotion();
 	void resetHistogramDefaultValuesZMotionAngular();

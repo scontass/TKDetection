@@ -83,6 +83,8 @@ MainWindow::MainWindow( QWidget *parent ) : QMainWindow(parent), _ui(new Ui::Mai
 	_ui->_comboProjectionType->insertItem(TKD::CYLINDRIC_PROJECTION,tr("Cylindrique"));
 	_ui->_comboProjectionType->setCurrentIndex(TKD::Z_PROJECTION);
 
+  _ui->_spinNbT->setValue(nbT);
+
 	// Histogrammes
 	_plotSliceHistogram->attach(_ui->_plotSliceHistogram);
 
@@ -198,6 +200,7 @@ MainWindow::MainWindow( QWidget *parent ) : QMainWindow(parent), _ui(new Ui::Mai
 	QObject::connect(_ui->_buttonSelectSliceIntervalUpdate, SIGNAL(clicked()), this, SLOT(selectCurrentSliceInterval()));
 	QObject::connect(_ui->_comboSelectSectorInterval, SIGNAL(currentIndexChanged(int)), this, SLOT(selectSectorInterval(int)));
 	QObject::connect(_ui->_buttonSelectSectorIntervalUpdate, SIGNAL(clicked()), this, SLOT(selectCurrentSectorInterval()));
+	QObject::connect(_ui->_spinNbT, SIGNAL(valueChanged(int)), this, SLOT(updateNbT()));
 
 	/********************************
 	* Évènements de l'onglet "Export"
@@ -996,6 +999,11 @@ void MainWindow::updateEllipticalAccumulationHistogram()
 	_plotEllipticalAccumulationHistogram->update( ellipticalHistogram );
 	_ui->_plotEllipticalAccumulationHistogram->setAxisScale(QwtPlot::xBottom,0,ellipticalHistogram.size());
 	_ui->_plotEllipticalAccumulationHistogram->replot();
+}
+
+void MainWindow::updateNbT()
+{
+  nbT = _ui->_spinNbT->value();
 }
 
 /********/

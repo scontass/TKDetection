@@ -6,6 +6,7 @@
 #include "inc/globaltimer.h"
 
 #include "inc/mainwindow.h"
+#include "ui_mainwindow.h"
 
 #include <iomanip>
 
@@ -141,6 +142,11 @@ void PithExtractorBoukadida::process( Billon &billon, const bool &adaptativeWidt
 	const qreal &xDim = voxelDims.x;
 	const qreal &yDim = voxelDims.y;
 
+  // Plantage semble venir de valeur de semiSubWindowWidth
+  //  printf("===> %d %f\n", _subWindowWidth, xDim);
+  // Affichage du nombre de threads
+  printf("Nombre de threads pour le calcul de la moelle : %d\n", nbT);
+
 	const int semiSubWindowWidth = qFloor(_subWindowWidth/(2.*xDim));   // Utilisé pour les noeuds : constante utilisateur
 	const int semiSubWindowHeight = qFloor(_subWindowHeight/(2.*yDim)); // Utilisé pour les noeuds : constante utilisateur
 
@@ -256,9 +262,15 @@ void PithExtractorBoukadida::process( Billon &billon, const bool &adaptativeWidt
       pith[completeSlices[num]] = transHough( billonFillBackground.slice(completeSlices[num]), nbLineByMaxRatio[completeSlices[num]],
                                               voxelDims, adaptativeWidth?completeSlices[num]/static_cast<qreal>(depth):1.0, 2 );
     }
+
     //  GlobalTimer::getInstance()->end();
 
+    //    std::cout << num << " : attente traitement coupes complètes" << std::endl;
+
     #pragma omp barrier
+
+    //    std::cout << num << " : barrière CC passée " << std::endl;
+
     /* </Time computing> */
 
     /* Calcul de la moelle sur les coupes suivantes
@@ -275,18 +287,26 @@ void PithExtractorBoukadida::process( Billon &billon, const bool &adaptativeWidt
 
     /* <Time computing> */
     // GlobalTimer::getInstance()->start("e) Hough transform on next valid slices");
+    // #pragma omp critical
+    // {
+    //   std::cout << num << " : " << "first : " << firstLocalSlice << " , last : " << lastLocalSlice << " départ : " << startLocalSlice << " sens : " << kIncrement << std::endl;
+    // }
 
     // Traitement des slices restantes
-    for ( k = startLocalSlice ; k<=lastLocalSlice && k >= firstLocalSlice ; k += kIncrement )
+    for ( k = startLocalSlice ; k<=lastLocalSlice && k>=firstLocalSlice ; k += kIncrement )
       {
         //		qDebug() << k ;
         const Slice &currentSlice = billonFillBackground.slice(k);
         const rCoord2D &previousPith = pith[k-kIncrement];
         
+        //        std::cout << num << "\tpith coord slice " << k << std::endl;
+
         subWindowStart.x = qMax(qFloor(previousPith.x-semiSubWindowWidth),0);
         subWindowEnd.x = qMin(qFloor(previousPith.x+semiSubWindowWidth),widthMinusOne);
         subWindowStart.y = qMax(qFloor(previousPith.y-semiSubWindowHeight),0);
         subWindowEnd.y = qMin(qFloor(previousPith.y+semiSubWindowHeight),heightMinusOne);
+
+        //        printf("fenêtre %d %d %d %d <--> (%f , %d) (%f , %d)\n", subWindowStart.y, subWindowStart.x, subWindowEnd.y, subWindowEnd.x, previousPith.x, semiSubWindowWidth, previousPith.y, semiSubWindowHeight);
         // Transformée de Hough sur zone restreinte selon coupe précédente
         currentPithCoord = transHough( currentSlice.submat( subWindowStart.y, subWindowStart.x, subWindowEnd.y, subWindowEnd.x ), nbLineByMaxRatio[k], voxelDims, 1.0, 1 ) + subWindowStart;
 
@@ -299,12 +319,22 @@ void PithExtractorBoukadida::process( Billon &billon, const bool &adaptativeWidt
             currentPithCoord = transHough( currentSlice, nbLineByMaxRatio[k], voxelDims, adaptativeWidth?k/static_cast<qreal>(depth):1.0, 1 );
           }
         
-        //    std::cout << "\tpith coord slice " << k << " : " << currentPithCoord.x << " , " << currentPithCoord.y << std::endl;
-        
+        // if(num == 0){
+        //   std::cout << "\tpith coord slice " << k << " : " << currentPithCoord.x << " , " << currentPithCoord.y << std::endl;
+        // }
+
         pith[k] = currentPithCoord;
       }
+
+    // #pragma omp critical
+    // {
+    //   std::cout << "\t" << num << " : " << "first : " << firstLocalSlice << " , last : " << lastLocalSlice << " départ : " << startLocalSlice << " sens : " << kIncrement << std::endl;
+    // }
+
   }
 	GlobalTimer::getInstance()->end();
+
+  std::cout << " : Traitement des coupes fini " << std::endl;
 
 /* </Time computing> */
 
@@ -430,6 +460,12 @@ uint PithExtractorBoukadida::accumulation( const Slice &slice, arma::Mat<qreal> 
   uint nbContourPoints = (sobelNormVec.n_elem) * 0.4;
   arma::Mat<int> &accuSlice = accuSliceVec[0];
 
+#ifdef PARALLEL
+  int numTExt = omp_get_thread_num();
+#else
+  int numTExt = 0;
+#endif
+
   #pragma omp parallel if(nbThreads > 1) num_threads(nbThreads)
   {
     uint i, j, k;
@@ -457,7 +493,7 @@ uint PithExtractorBoukadida::accumulation( const Slice &slice, arma::Mat<qreal> 
 //     }
 //     nextFirstLine = firstLine + nbLines;
 
-    // std::cout << numL << " : calculs d'accumulation" << std::endl;
+//    std::cout << numTExt << " " << numL << " : calculs d'accumulation" << std::endl;
 
     // Calcul des filtres de Sobel
     #pragma omp for
@@ -480,6 +516,7 @@ uint PithExtractorBoukadida::accumulation( const Slice &slice, arma::Mat<qreal> 
     #pragma omp single
     {
       sobelNormSortIndex = arma::sort_index( sobelNormVec, "descend" );
+      //      std::cout << numTExt << " " << numL << " : tri des index fait" << std::endl;
       // nbContourPoints = (sobelNormVec.n_elem) * 0.4;
     }
     
@@ -492,6 +529,7 @@ uint PithExtractorBoukadida::accumulation( const Slice &slice, arma::Mat<qreal> 
       }
     
     #pragma omp barrier
+    //    std::cout << numTExt << " " << numL << " : accumulation finale" << std::endl;
     
     if(nbThreads > 1)
       {
@@ -508,6 +546,7 @@ uint PithExtractorBoukadida::accumulation( const Slice &slice, arma::Mat<qreal> 
           }
       }
   }
+  //  std::cout << numTExt << " : fin accumulation" << std::endl;
 
 	return nbContourPoints;
 }

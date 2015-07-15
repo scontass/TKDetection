@@ -9,7 +9,9 @@
 //#include "tst/test_intervalshistogram.h"
 
 #include "inc/mainwindow.h"
+
 uint nbT = 1;
+
 void outputHandler(QtMsgType type, const char *msg)
 {
 	fprintf(stderr, "%s\n", msg);

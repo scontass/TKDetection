@@ -10,7 +10,7 @@
 
 # Version d'ITK installée : itk3 | itk4
 ITK_VERSION = itk4
-ITK_NUMBER =  4.5
+ITK_NUMBER =  4.7
 
 
 #                                                                #
@@ -118,19 +118,23 @@ FORMS =	ui/mainwindow.ui
 
 # Directives compilateur
 #-----------------------#
-QMAKE_CXXFLAGS *= -std=c++0x -Wall -O3 -DARMA_DONT_USE_CXX11 -DARMA_NO_DEBUG -fopenmp -DPARALLEL
-QMAKE_LFLAGS *= -fopenmp
+QMAKE_CXXFLAGS *= -std=c++0x -Wall -O3 -axCORE-AVX2 -DARMA_DONT_USE_CXX11 -DARMA_NO_DEBUG -openmp -DPARALLEL
+QMAKE_CFLAGS *= -std=c++0x -Wall -O3 -axCORE-AVX2 -DARMA_DONT_USE_CXX11 -DARMA_NO_DEBUG -openmp -DPARALLEL
+QMAKE_LFLAGS *= -openmp
+QMAKE_CC=icc
+QMAKE_CXX=icpc
+QMAKE_LINK=icpc
 macx:QMAKE_CC=/usr/bin/gcc
 macx:QMAKE_CXX=/usr/bin/g++
 
 
 # Librairies externes
 #--------------------#
-INCLUDEPATH *=	/usr/include/ /usr/local/include/ /usr/local/qwtpolar-1.0.0/include
+INCLUDEPATH *=	/usr/include /usr/local/include /usr/local/qwtpolar-1.0.0/include /usr/local/qwt-6.0.2/include
 
-QMAKE_LIBDIR *=	/usr/local/lib/ /usr/local/qwtpolar-1.0.0/lib /usr/lib/atlas-base /etc/alternatives
+QMAKE_LIBDIR *=	/usr/local/lib /usr/local/qwt-6.0.2/lib /usr/local/qwtpolar-1.0.0/lib /usr/lib/atlas-base /etc/alternatives 
 
-LIBS *= -larmadillo -lgsl -lgslcblas
+LIBS *= -lqwt -lqwtpolar -larmadillo -lgsl -lgslcblas
 
 # ITK
 #----#
@@ -193,6 +197,7 @@ else:itk4 {
 				-lITKIOTIFF-$${ITK_NUMBER} \
 					-litktiff-$${ITK_NUMBER} \
 					-litkjpeg-$${ITK_NUMBER} \
-				-ldl \
-				-lexpat
+				  -ldl \
+				  -lexpat \
+					-lITKVNLInstantiation-$${ITK_NUMBER}
 }

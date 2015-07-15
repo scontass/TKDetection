@@ -748,7 +748,7 @@ zone restreinte</string>
               <widget class="QLabel" name="label_34">
                <property name="text">
                 <string>Pourcentage de coupes
-à ignoer</string>
+à ignorer</string>
                </property>
               </widget>
              </item>
@@ -2170,6 +2170,25 @@ l'intervalle angulaire</string>
            </item>
           </layout>
          </item>
+
+         <item row="3" column="0">
+           <widget class="QLabel" name="label_nbT">
+             <property name="text">
+               <string>Nombre de threads</string>
+             </property>
+           </widget>
+         </item>
+         <item row="3" column="1">
+           <widget class="QSpinBox" name="_spinNbT">
+             <property name="maximum">
+               <number>32</number>
+             </property>
+             <property name="value">
+               <number>1</number>
+             </property>
+           </widget>
+         </item>
+
         </layout>
        </widget>
        <widget class="QWidget" name="_tabExport">
