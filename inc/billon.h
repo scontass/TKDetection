@@ -5,6 +5,7 @@
 #include "define.h"
 #include "coordinate.h"
 #include "interval.h"
+#include "mainwindow.h"
 
 #include <QDebug>
 #include <armadillo>
@@ -80,8 +81,51 @@ BillonTpl<T>::BillonTpl( const int & width, const int & height, const int & dept
 	arma::Cube<T>(height,width,depth), _pith(0), _valueInterval(T(0),T(0)), _voxelDims(1.,1.,1.), _zPos(0) {}
 
 template< typename T >
-BillonTpl<T>::BillonTpl( const BillonTpl<T> & billon ) :
-	arma::Cube<T>(billon), _pith(billon._pith), _valueInterval(billon._valueInterval), _voxelDims(billon._voxelDims), _zPos(billon._zPos) {}
+BillonTpl<T>::BillonTpl( const BillonTpl<T> & billon ) : arma::Cube<T>(billon.n_rows, billon.n_cols, billon.n_slices), _pith(billon._pith), _valueInterval(billon._valueInterval), _voxelDims(billon._voxelDims), _zPos(billon._zPos)
+{
+  const T *src = billon.memptr();
+  T *dst = this->memptr();
+
+  /* std::cout << "Cube Orig : " << billon.n_rows << " " << billon.n_cols << " " << billon.n_slices << std::endl; */
+  /* std::cout << "          : " << billon.n_elem_slice << " " << billon.n_elem << " " << billon.mem_state << std::endl; */
+
+  /* std::cout << "Cube dest : " << this->n_rows << " " << this->n_cols << " " << this->n_slices << std::endl; */
+  /* std::cout << "          : " << this->n_elem_slice << " " << this->n_elem << " " << this->mem_state << std::endl; */
+
+  /* qDebug() << src << " -> " << src + billon.n_elem << " : " << billon.n_elem * sizeof(T) << " : " << sizeof(T); */
+  /* qDebug() << dst << " -> " << dst + billon.n_elem << " : " << billon.n_elem * sizeof(T) << " : " << sizeof(T); */
+
+  /* char flag = 0; */
+
+  if(nbT > 1){
+    int div, reste;
+
+    div = billon.n_elem / nbT;
+    reste = billon.n_elem % nbT;
+
+    #pragma omp parallel num_threads(nbT)
+    {
+      int num = omp_get_thread_num();
+      int deb, nb;
+
+      deb = num * div;
+      nb = div;
+      if(num == nbT - 1){
+        nb += reste;
+      }
+
+      /* while(flag != num){ */
+      /*   #pragma omp flush(flag) */
+      /* } */
+      /* qDebug() << num << "(" << nbT << ")" << " : " << dst+deb << " , " << src+deb << " , " << deb << " , " << nb; */
+      std::memcpy(dst + deb, src + deb, nb * sizeof(T));
+      /* flag++; */
+      /* #pragma omp flush(flag) */
+    }
+  }else{
+    std::memcpy(dst, src, billon.n_elem * sizeof(T));
+  }
+}
 
 template< typename T >
 BillonTpl<T>::BillonTpl( const BillonTpl<T> &billon, const Interval<uint> &sliceInterval ) :

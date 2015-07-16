@@ -118,8 +118,8 @@ FORMS =	ui/mainwindow.ui
 
 # Directives compilateur
 #-----------------------#
-QMAKE_CXXFLAGS *= -std=c++0x -Wall -O3 -axCORE-AVX2 -DARMA_DONT_USE_CXX11 -DARMA_NO_DEBUG -openmp -DPARALLEL
-QMAKE_CFLAGS *= -std=c++0x -Wall -O3 -axCORE-AVX2 -DARMA_DONT_USE_CXX11 -DARMA_NO_DEBUG -openmp -DPARALLEL
+QMAKE_CXXFLAGS *= -std=c++0x -Wall -O3 -DARMA_DONT_USE_CXX11 -DARMA_NO_DEBUG -openmp -DPARALLEL # -axCORE-AVX2
+QMAKE_CFLAGS *= -std=c++0x -Wall -O3 -DARMA_DONT_USE_CXX11 -DARMA_NO_DEBUG -openmp -DPARALLEL # -axCORE-AVX2
 QMAKE_LFLAGS *= -openmp
 QMAKE_CC=icc
 QMAKE_CXX=icpc
@@ -134,7 +134,7 @@ INCLUDEPATH *=	/usr/include /usr/local/include /usr/local/qwtpolar-1.0.0/include
 
 QMAKE_LIBDIR *=	/usr/local/lib /usr/local/qwt-6.0.2/lib /usr/local/qwtpolar-1.0.0/lib /usr/lib/atlas-base /etc/alternatives 
 
-LIBS *= -lqwt -lqwtpolar -larmadillo -lgsl -lgslcblas
+LIBS *= -lqwt -lqwtpolar -larmadillo -lgsl -lgslcblas -lopenblaso -llapack
 
 # ITK
 #----#

@@ -202,6 +202,7 @@ void PithExtractorBoukadida::process( Billon &billon, const bool &adaptativeWidt
   //	qDebug() << "Step 4] Hough transform on first valid slice";
   /* <Time computing> */
   GlobalTimer::getInstance()->start("d-e) Hough transforms on all slices");
+  double duree, deb = omp_get_wtime();
 
 #ifdef PARALLEL
   omp_set_nested(1);
@@ -232,7 +233,7 @@ void PithExtractorBoukadida::process( Billon &billon, const bool &adaptativeWidt
     int startLocalSlice; // = kIncrement?firstLocalSlice:lastLocalSlice;
     if(num % 2 == 0){
       if(nbT == 1){
-        std::cout << num << "Il n'y a qu'un thread défini localement" << std::endl;
+        std::cout << "Il n'y a qu'un thread défini localement" << std::endl;
         kIncrement = (_ascendingOrder?1:-1);
         completeSlices[num] = firstSliceOrdered;
         startLocalSlice = firstSliceOrdered + kIncrement;
@@ -260,7 +261,7 @@ void PithExtractorBoukadida::process( Billon &billon, const bool &adaptativeWidt
       // std::cout << num << " : " << "calcul de la coupe " << completeSlices[num] << std::endl;
       
       pith[completeSlices[num]] = transHough( billonFillBackground.slice(completeSlices[num]), nbLineByMaxRatio[completeSlices[num]],
-                                              voxelDims, adaptativeWidth?completeSlices[num]/static_cast<qreal>(depth):1.0, 2 );
+                                              voxelDims, adaptativeWidth?completeSlices[num]/static_cast<qreal>(depth):1.0, (nbT>1)?2:1 );
     }
 
     //  GlobalTimer::getInstance()->end();
@@ -332,9 +333,11 @@ void PithExtractorBoukadida::process( Billon &billon, const bool &adaptativeWidt
     // }
 
   }
+  duree = omp_get_wtime() - deb;
 	GlobalTimer::getInstance()->end();
 
-  std::cout << " : Traitement des coupes fini " << std::endl;
+
+  std::cout << " : Traitement des coupes fini : " << duree << "s" << std::endl;
 
 /* </Time computing> */
 
@@ -429,7 +432,8 @@ uiCoord2D PithExtractorBoukadida::transHough( const Slice &slice, qreal &lineOnM
 
 	// Création de la matrice d'accumulation à partir des filtres de Sobel
 	arma::Mat<qreal> orientations( height, maxX-minX+1, arma::fill::zeros );
-	QVector< arma::Mat<int> > accuSliceVec( nbThreads, arma::Mat<int>(height, maxX-minX+1, arma::fill::zeros) );
+	// QVector< arma::Mat<int> > accuSliceVec( nbThreads, arma::Mat<int>(height, maxX-minX+1, arma::fill::zeros) );
+	QVector< arma::Mat<int> > accuSliceVec( 1, arma::Mat<int>(height, maxX-minX+1, arma::fill::zeros) );
 	uint nbContourPoints = accumulation( slice.cols(minX,maxX), orientations, accuSliceVec, voxelDims, nbThreads );
   arma::Mat<int> &accuSlice = accuSliceVec[0];
 
@@ -466,13 +470,11 @@ uint PithExtractorBoukadida::accumulation( const Slice &slice, arma::Mat<qreal> 
   int numTExt = 0;
 #endif
 
-  #pragma omp parallel if(nbThreads > 1) num_threads(nbThreads)
+  #pragma omp parallel if(nbThreads > 1 && widthMinusOne * heightMinusOne > 1000) num_threads(nbThreads)
   {
     uint i, j, k;
     qreal sobelX, sobelY, norm;
 
-//     int firstLine;
-//     int nextFirstLine;
 #ifdef PARALLEL
 //     // int nbT = omp_get_num_threads();
     int numL = omp_get_thread_num();
@@ -480,23 +482,27 @@ uint PithExtractorBoukadida::accumulation( const Slice &slice, arma::Mat<qreal> 
 //     // int nbT = 1;
     int numL = 0;
 #endif
+    int firstLine;
+    int nextFirstLine;
 
-//     // Calcul des bandes d'image
-//     int nbLines = (heightMinusOne - 1) / nbT;
-//     int reste = (heightMinusOne - 1) % nbT;
-//     firstLine = numL * nbLines + 1;
-//     if(numL < reste){
-//       nbLines++;
-//       firstLine += numL;
-//     }else{
-//       firstLine += reste;
-//     }
-//     nextFirstLine = firstLine + nbLines;
+    // Calcul des bandes d'image
+    int nbLines = (heightMinusOne - 1) / 2;
+    int reste = (heightMinusOne - 1) % 2;
+    firstLine = numL * nbLines + 1;
+    if(numL < reste){
+      nbLines++;
+      firstLine += numL;
+    }else{
+      firstLine += reste;
+    }
+    nextFirstLine = firstLine + nbLines;
 
-//    std::cout << numTExt << " " << numL << " : calculs d'accumulation" << std::endl;
+    // if(nbThreads > 1){
+    //   std::cout << numTExt << " " << numL << " : calculs d'accumulation -> " << firstLine << " , " <<  nextFirstLine << std::endl;
+    // }
 
     // Calcul des filtres de Sobel
-    #pragma omp for
+    #pragma omp for collapse(2)
     for ( i=1 ; i<widthMinusOne ; ++i )
       {
         for ( j=1 ; j<heightMinusOne ; ++j )
@@ -516,35 +522,42 @@ uint PithExtractorBoukadida::accumulation( const Slice &slice, arma::Mat<qreal> 
     #pragma omp single
     {
       sobelNormSortIndex = arma::sort_index( sobelNormVec, "descend" );
-      //      std::cout << numTExt << " " << numL << " : tri des index fait" << std::endl;
+      // std::cout << numTExt << " " << numL << " : tri des index fait" << std::endl;
       // nbContourPoints = (sobelNormVec.n_elem) * 0.4;
     }
     
-    #pragma omp for
-    for ( k=0 ; k<nbContourPoints ; ++k )
-      {
+    if(nbThreads > 1) {
+      for ( k=0 ; k<nbContourPoints ; ++k ) {
         i = (sobelNormSortIndex[k] % (widthMinusOne-1)) + 1;
         j = (sobelNormSortIndex[k] / (widthMinusOne-1)) + 1;
-        drawLine( accuSliceVec[numL], uiCoord2D(i,j), -orientations(j,i) );
+        drawLinePart( accuSliceVec[0], uiCoord2D(i,j), -orientations(j,i), firstLine, nextFirstLine );
       }
+    }else{
+      for ( k=0 ; k<nbContourPoints ; ++k )
+        {
+          i = (sobelNormSortIndex[k] % (widthMinusOne-1)) + 1;
+          j = (sobelNormSortIndex[k] / (widthMinusOne-1)) + 1;
+          drawLine( accuSliceVec[numL], uiCoord2D(i,j), -orientations(j,i) );
+        }
+    }
     
-    #pragma omp barrier
-    //    std::cout << numTExt << " " << numL << " : accumulation finale" << std::endl;
+    // #pragma omp barrier
+    // //    std::cout << numTExt << " " << numL << " : accumulation finale" << std::endl;
     
-    if(nbThreads > 1)
-      {
-        #pragma omp for
-        for(j=0; j<slice.n_rows; ++j)
-          {
-            for(i=0; i<slice.n_cols; ++i)
-              {
-                for(k=1; k<nbThreads; ++k)
-                  {
-                    accuSlice(j, i) += accuSliceVec[k](j, i);
-                  }
-              }
-          }
-      }
+    // if(nbThreads > 1)
+    //   {
+    //     #pragma omp for
+    //     for(j=0; j<slice.n_rows; ++j)
+    //       {
+    //         for(i=0; i<slice.n_cols; ++i)
+    //           {
+    //             for(k=1; k<nbThreads; ++k)
+    //               {
+    //                 accuSlice(j, i) += accuSliceVec[k](j, i);
+    //               }
+    //           }
+    //       }
+    //   }
   }
   //  std::cout << numTExt << " : fin accumulation" << std::endl;
 
@@ -606,6 +619,77 @@ void PithExtractorBoukadida::drawLine(arma::Mat<int> &slice, const iCoord2D &ori
 		}
 	}
 }
+
+// void PithExtractorBoukadida::drawLine2(arma::Mat<int> &slice, const iCoord2D &origin, const qreal &orientation ) const
+// {
+// 	const int heightMinusOne = slice.n_rows-1;
+// 	const int widthMinusOne = slice.n_cols-1;
+// 	const int originX = origin.x;
+// 	const int originY = origin.y;
+// 	const qreal orientationInv = 1./orientation;
+
+// 	qreal x, y;
+
+//   int i;
+//   int dcol, dlig, dmin;
+
+// 	if ( orientation >= 1. )
+// 	{
+//     x = originX;
+//     y = originY;
+//     dlig = slice.n_rows - origin.y;
+//     dcol = slice.n_cols - origin.x;
+//     if(dlig > dcol){
+//       dmin = dcol;
+//     }else{
+//       dmin = dlig;
+//     }
+//     #pragma omp for
+// 		for (i=0 ; i<dlig ; i++)
+// 		{
+// 			slice(y,x) += 1;
+//       x += orientationInv;
+//       y += 1.;
+// 		}
+// 		for ( x = originX-orientationInv , y=originY-1; x>0. && y>0. ; x -= orientationInv, y -= 1. )
+// 		{
+// 			slice(y,x) += 1;
+// 		}
+// 	}
+// 	else if ( orientation > 0. )
+// 	{
+// 		for ( x = originX, y=originY ; x<widthMinusOne && y<heightMinusOne ; x += 1., y += orientation )
+// 		{
+// 			slice(y,x) += 1;
+// 		}
+// 		for ( x = originX-1., y=originY-orientation ; x>0. && y>0. ; x -= 1., y -= orientation )
+// 		{
+// 			slice(y,x) += 1;
+// 		}
+// 	}
+// 	else if ( orientation > -1. )
+// 	{
+// 		for ( x = originX, y=originY ; x<widthMinusOne && y>0. ; x += 1., y += orientation )
+// 		{
+// 			slice(y,x) += 1;
+// 		}
+// 		for ( x = originX-1., y=originY-orientation ; x>0. && y<heightMinusOne ; x -= 1., y -= orientation )
+// 		{
+// 			slice(y,x) += 1;
+// 		}
+// 	}
+// 	else
+// 	{
+// 		for ( x = originX , y=originY; x>0. && y<heightMinusOne ; x += orientationInv, y += 1. )
+// 		{
+// 			slice(y,x) += 1;
+// 		}
+// 		for ( x = originX-orientationInv , y=originY-1.; x<widthMinusOne && y>0. ; x -= orientationInv, y -= 1. )
+// 		{
+// 			slice(y,x) += 1;
+// 		}
+// 	}
+// }
 
 void avoidMiddleFloat(double *x)
 {

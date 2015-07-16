@@ -2183,6 +2183,9 @@ l'intervalle angulaire</string>
              <property name="maximum">
                <number>32</number>
              </property>
+             <property name="minimum">
+               <number>1</number>
+             </property>
              <property name="value">
                <number>1</number>
              </property>
