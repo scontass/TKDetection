@@ -144,6 +144,7 @@ void PithExtractorBoukadida::process( Billon &billon, const bool &adaptativeWidt
 
   // Plantage semble venir de valeur de semiSubWindowWidth
   //  printf("===> %d %f\n", _subWindowWidth, xDim);
+
   // Affichage du nombre de threads
   printf("Nombre de threads pour le calcul de la moelle : %d\n", nbT);
 
@@ -202,8 +203,9 @@ void PithExtractorBoukadida::process( Billon &billon, const bool &adaptativeWidt
   //	qDebug() << "Step 4] Hough transform on first valid slice";
   /* <Time computing> */
   GlobalTimer::getInstance()->start("d-e) Hough transforms on all slices");
-  double duree, deb = omp_get_wtime();
+  // double duree, deb = omp_get_wtime();
 
+  // Version parallèle multi-processus du calcul des transformées de Hough
 #ifdef PARALLEL
   omp_set_nested(1);
 #endif
@@ -282,6 +284,7 @@ void PithExtractorBoukadida::process( Billon &billon, const bool &adaptativeWidt
        2 - répartir les coupes par blocs sur les threads et faire les calculs indépendemment
            !! risque de démarrer un bloc sur une coupe avec noeuds, pouvant fausser la position de la moelle !!
     */
+
     //	qDebug() <<"Step 5] Hough transform on next valid slices";
     rCoord2D currentPithCoord;
     iCoord2D subWindowStart, subWindowEnd;
@@ -316,7 +319,7 @@ void PithExtractorBoukadida::process( Billon &billon, const bool &adaptativeWidt
         // 
         if ( qSqrt( qPow((currentPithCoord.x-previousPith.x)*xDim,2) + qPow((currentPithCoord.y-previousPith.y)*yDim,2) ) > _pithShift )
           {
-            //			qDebug() << "...  ";
+            // qDebug() << "\t...  ";
             currentPithCoord = transHough( currentSlice, nbLineByMaxRatio[k], voxelDims, adaptativeWidth?k/static_cast<qreal>(depth):1.0, 1 );
           }
         
@@ -333,11 +336,9 @@ void PithExtractorBoukadida::process( Billon &billon, const bool &adaptativeWidt
     // }
 
   }
-  duree = omp_get_wtime() - deb;
+  // duree = omp_get_wtime() - deb;
 	GlobalTimer::getInstance()->end();
-
-
-  std::cout << " : Traitement des coupes fini : " << duree << "s" << std::endl;
+  // std::cout << " : Traitement des coupes fini : " << duree << "s" << std::endl;
 
 /* </Time computing> */
 
@@ -470,6 +471,7 @@ uint PithExtractorBoukadida::accumulation( const Slice &slice, arma::Mat<qreal> 
   int numTExt = 0;
 #endif
 
+  // Version parallèle multi-processus de l'accumulation pour une droite donnée
   #pragma omp parallel if(nbThreads > 1 && widthMinusOne * heightMinusOne > 1000) num_threads(nbThreads)
   {
     uint i, j, k;
@@ -619,77 +621,6 @@ void PithExtractorBoukadida::drawLine(arma::Mat<int> &slice, const iCoord2D &ori
 		}
 	}
 }
-
-// void PithExtractorBoukadida::drawLine2(arma::Mat<int> &slice, const iCoord2D &origin, const qreal &orientation ) const
-// {
-// 	const int heightMinusOne = slice.n_rows-1;
-// 	const int widthMinusOne = slice.n_cols-1;
-// 	const int originX = origin.x;
-// 	const int originY = origin.y;
-// 	const qreal orientationInv = 1./orientation;
-
-// 	qreal x, y;
-
-//   int i;
-//   int dcol, dlig, dmin;
-
-// 	if ( orientation >= 1. )
-// 	{
-//     x = originX;
-//     y = originY;
-//     dlig = slice.n_rows - origin.y;
-//     dcol = slice.n_cols - origin.x;
-//     if(dlig > dcol){
-//       dmin = dcol;
-//     }else{
-//       dmin = dlig;
-//     }
-//     #pragma omp for
-// 		for (i=0 ; i<dlig ; i++)
-// 		{
-// 			slice(y,x) += 1;
-//       x += orientationInv;
-//       y += 1.;
-// 		}
-// 		for ( x = originX-orientationInv , y=originY-1; x>0. && y>0. ; x -= orientationInv, y -= 1. )
-// 		{
-// 			slice(y,x) += 1;
-// 		}
-// 	}
-// 	else if ( orientation > 0. )
-// 	{
-// 		for ( x = originX, y=originY ; x<widthMinusOne && y<heightMinusOne ; x += 1., y += orientation )
-// 		{
-// 			slice(y,x) += 1;
-// 		}
-// 		for ( x = originX-1., y=originY-orientation ; x>0. && y>0. ; x -= 1., y -= orientation )
-// 		{
-// 			slice(y,x) += 1;
-// 		}
-// 	}
-// 	else if ( orientation > -1. )
-// 	{
-// 		for ( x = originX, y=originY ; x<widthMinusOne && y>0. ; x += 1., y += orientation )
-// 		{
-// 			slice(y,x) += 1;
-// 		}
-// 		for ( x = originX-1., y=originY-orientation ; x>0. && y<heightMinusOne ; x -= 1., y -= orientation )
-// 		{
-// 			slice(y,x) += 1;
-// 		}
-// 	}
-// 	else
-// 	{
-// 		for ( x = originX , y=originY; x>0. && y<heightMinusOne ; x += orientationInv, y += 1. )
-// 		{
-// 			slice(y,x) += 1;
-// 		}
-// 		for ( x = originX-orientationInv , y=originY-1.; x<widthMinusOne && y>0. ; x -= orientationInv, y -= 1. )
-// 		{
-// 			slice(y,x) += 1;
-// 		}
-// 	}
-// }
 
 void avoidMiddleFloat(double *x)
 {

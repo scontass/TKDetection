@@ -34,32 +34,43 @@ void SliceHistogram::construct( const Billon &billon, const Interval<int> &inten
 	}
 
 	const uint maxOfInterval = qMin(depth-nbSlicesToIgnore,static_cast<uint>(this->size()-1));
-	int i, j, iRadius, iRadiusMax;
-	uint diff, k;
-	iCoord2D currentPos;
-	qreal cumul;
 
-	for ( k=nbSlicesToIgnore ; k<maxOfInterval ; ++k )
-	{
-		cumul = 0.;
-		currentPos.y = billon.pithCoord(k).y-radiusAroundPith;
-		for ( j=-radiusAroundPith ; j<radiusMax ; ++j, currentPos.y++ )
-		{
-			iRadius = circleLines[j+radiusAroundPith];
-			iRadiusMax = iRadius+1;
-			currentPos.x = billon.pithCoord(k).x-iRadius;
-			for ( i=-iRadius ; i<iRadiusMax ; ++i, currentPos.x++ )
-			{
-				if ( currentPos.x >= 0 && currentPos.y >= 0 && currentPos.x < width && currentPos.y < height )
-				{
-					if ( intensity.containsClosed(billon(currentPos.y,currentPos.x,k)) && intensity.containsClosed(billon.previousSlice(k)(currentPos.y,currentPos.x)) )
-					{
-						diff = billon.zMotion( currentPos.x, currentPos.y, k );
-						if ( diff > zMotionMin ) cumul += diff-zMotionMin;
-					}
-				}
-			}
-		}
-		(*this)[k] = cumul;
-	}
+  // double deb, duree;
+  // deb = omp_get_wtime();
+
+  // Version parallèle multi-processus du calcul des cumuls de z-motion
+  #pragma omp parallel if(nbT>1) num_threads(nbT)
+  {
+    int i, j, iRadius, iRadiusMax;
+    uint diff, k;
+    iCoord2D currentPos;
+    qreal cumul;
+
+    #pragma omp for 
+    for ( k=nbSlicesToIgnore ; k<maxOfInterval ; ++k )
+      {
+        cumul = 0.;
+        currentPos.y = billon.pithCoord(k).y-radiusAroundPith;
+        for ( j=-radiusAroundPith ; j<radiusMax ; ++j, currentPos.y++ )
+          {
+            iRadius = circleLines[j+radiusAroundPith];
+            iRadiusMax = iRadius+1;
+            currentPos.x = billon.pithCoord(k).x-iRadius;
+            for ( i=-iRadius ; i<iRadiusMax ; ++i, currentPos.x++ )
+              {
+                if ( currentPos.x >= 0 && currentPos.y >= 0 && currentPos.x < width && currentPos.y < height )
+                  {
+                    if ( intensity.containsClosed(billon(currentPos.y,currentPos.x,k)) && intensity.containsClosed(billon.previousSlice(k)(currentPos.y,currentPos.x)) )
+                      {
+                        diff = billon.zMotion( currentPos.x, currentPos.y, k );
+                        if ( diff > zMotionMin ) cumul += diff-zMotionMin;
+                      }
+                  }
+              }
+          }
+        (*this)[k] = cumul;
+      }
+  }
+  // duree = omp_get_wtime() - deb;
+  // qDebug() << "------- temps boucle finale z-histo : " << duree << "s ----------";
 }

@@ -23,7 +23,8 @@ void GlobalTimer::end()
 	if ( !_currentLevel ) return;
 	_currentLevel--;
 	QVector<_TimeStat_>::Iterator statIter = _times.end();
-	while ( statIter != _times.constBegin() && statIter->_level != _currentLevel ) statIter--;
+	// while ( statIter != _times.constBegin() && statIter->_level != _currentLevel ) statIter--;
+  statIter--; // Remplace la ligne précédent car la boucle n'est pas utile étant donné que les timers sont imbriqués de manière stricte (on dépile toujours le dernier en premier)
 	_TimeStat_ &endingStat = *statIter;
 	endingStat._end = endTime;
 	endingStat._duration = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - endingStat._start).count();

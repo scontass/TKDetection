@@ -84,6 +84,11 @@ MainWindow::MainWindow( QWidget *parent ) : QMainWindow(parent), _ui(new Ui::Mai
 	_ui->_comboProjectionType->setCurrentIndex(TKD::Z_PROJECTION);
 
   _ui->_spinNbT->setValue(nbT);
+  if(nbT % 2 == 1){
+    _ui->_spinNbT->setSingleStep(1);
+  }else{
+    _ui->_spinNbT->setSingleStep(2);
+  }
 
 	// Histogrammes
 	_plotSliceHistogram->attach(_ui->_plotSliceHistogram);
@@ -1004,6 +1009,11 @@ void MainWindow::updateEllipticalAccumulationHistogram()
 void MainWindow::updateNbT()
 {
   nbT = _ui->_spinNbT->value();
+  if(nbT % 2 == 1){
+    _ui->_spinNbT->setSingleStep(1);
+  }else{
+    _ui->_spinNbT->setSingleStep(2);
+  }
 }
 
 /********/
